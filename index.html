@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HerJos - Diseño y Desarrollo Web</title>
+  
+  <!-- Tipografías de Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Alex+Brush&family=Montserrat:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Montserrat', sans-serif;
+      background-color: #FFFFFF;
+      color: #0A1A3F;
+      line-height: 1.6;
+    }
+
+    /* Encabezado */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: #FFFFFF;
+      padding: 15px 40px;
+      border-bottom: 2px solid #C9A646;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+
+    .header-logo {
+      width: 110px;
+      height: auto;
+      transition: transform 0.3s ease;
+    }
+
+    .header-logo:hover {
+      transform: scale(1.05);
+    }
+
+    header .brand-name {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    header .brand-name svg {
+      height: 75px;
+      width: auto;
+      max-width: 100%;
+    }
+
+    .gold-text {
+      font-family: 'Alex Brush', cursive;
+      font-size: 110px;
+      fill: url(#gold-gradient);
+      filter: drop-shadow(1px 2px 3px rgba(0,0,0,0.4));
+    }
+
+    /* Menú de Navegación */
+    nav {
+      display: flex;
+      gap: 20px;
+    }
+
+    nav a {
+      color: #0A1A3F;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      transition: color 0.3s ease;
+    }
+
+    nav a:hover {
+      color: #C9A646;
+    }
+
+    /* Hero Principal */
+    .hero {
+      position: relative;
+      text-align: center;
+      padding: 100px 20px;
+      background: linear-gradient(135deg, #FFFFFF 40%, #0A1A3F 60%);
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at top right, rgba(201,166,70,0.25), transparent 60%);
+      z-index: 0;
+    }
+
+    .hero h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 46px;
+      color: #C9A646;
+      margin-bottom: 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero p {
+      font-size: 20px;
+      max-width: 720px;
+      margin: auto;
+      color: #0A1A3F;
+      position: relative;
+      z-index: 1;
+      background-color: rgba(255,255,255,0.92);
+      padding: 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+
+    /* Botón Principal */
+    .btn {
+      display: inline-block;
+      margin-top: 30px;
+      padding: 14px 32px;
+      background-color: #C9A646;
+      color: #0A1A3F;
+      text-decoration: none;
+      border-radius: 4px;
+      font-weight: 700;
+      border: 2px solid #C9A646;
+      transition: all 0.3s ease;
+      position: relative;
+      z-index: 1;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+
+    .btn:hover {
+      background-color: #0A1A3F;
+      color: #FFFFFF;
+      border-color: #C9A646;
+      transform: translateY(-2px);
+    }
+
+    /* Secciones Generales */
+    section {
+      padding: 80px 20px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      text-align: center;
+      font-size: 34px;
+      color: #0A1A3F;
+      margin-bottom: 40px;
+      position: relative;
+    }
+
+    .section-title::after {
+      content: "";
+      display: block;
+      width: 60px;
+      height: 3px;
+      background-color: #C9A646;
+      margin: 10px auto 0;
+    }
+
+    /* Grilla de Pilares / Servicios */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 30px;
+    }
+
+    .card {
+      background: #FFFFFF;
+      border: 1px solid #E0E0E0;
+      border-top: 4px solid #C9A646;
+      border-radius: 6px;
+      padding: 30px;
+      text-align: center;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.08);
+    }
+
+    .card h3 {
+      font-family: 'Playfair Display', serif;
+      font-size: 22px;
+      color: #0A1A3F;
+      margin-bottom: 15px;
+    }
+
+    /* Sección de Enlaces Futuros (CV, Portafolio, etc.) */
+    .links-section {
+      background-color: #F9F9FB;
+      border-radius: 8px;
+      padding: 40px;
+      margin-top: 20px;
+    }
+
+    .link-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      background: #FFFFFF;
+      border: 1px solid #E0E0E0;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      transition: border-color 0.3s ease;
+    }
+
+    .link-card:hover {
+      border-color: #C9A646;
+    }
+
+    .link-card h4 {
+      font-size: 18px;
+      color: #0A1A3F;
+    }
+
+    .link-card p {
+      font-size: 14px;
+      color: #666;
+    }
+
+    .btn-outline {
+      padding: 8px 18px;
+      border: 1px solid #C9A646;
+      color: #0A1A3F;
+      text-decoration: none;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 14px;
+      transition: all 0.3s ease;
+    }
+
+    .btn-outline:hover {
+      background-color: #C9A646;
+      color: #FFFFFF;
+    }
+
+    /* Contacto Simple */
+    .contact-container {
+      text-align: center;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* Footer */
+    footer {
+      background-color: #0A1A3F;
+      color: #FFFFFF;
+      text-align: center;
+      padding: 30px 20px;
+      font-size: 14px;
+      border-top: 2px solid #C9A646;
+    }
+
+    /* Responsividad */
+    @media (max-width: 768px) {
+      header {
+        flex-direction: column;
+        gap: 15px;
+        padding: 20px;
+      }
+      header .brand-name svg {
+        height: 60px;
+      }
+      .hero {
+        padding: 60px 20px;
+      }
+      .hero h1 {
+        font-size: 32px;
+      }
+      .hero p {
+        font-size: 17px;
+      }
+      .link-card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Encabezado con navegación -->
+  <header>
+    <img src="logoherjos.png" alt="Logo HerJos" class="header-logo">
+    
+    <div class="brand-name">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 160">
+        <defs>
+          <linearGradient id="gold-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#FCE074" />
+            <stop offset="35%" stop-color="#EAA123" />
+            <stop offset="70%" stop-color="#B26B09" />
+            <stop offset="100%" stop-color="#FCDA68" />
+          </linearGradient>
+        </defs>
+        <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle" class="gold-text">HerJos</text>
+      </svg>
+    </div>
+
+    <nav>
+      <a href="#inicio">Inicio</a>
+      <a href="#enfoque">Enfoque</a>
+      <a href="#accesos">Accesos</a>
+      <a href="#contacto">Contacto</a>
+    </nav>
+  </header>
+
+  <!-- Hero Principal -->
+  <div id="inicio" class="hero">
+    <h1>Diseño web con presencia y confianza</h1>
+    <p>
+      Creamos soluciones digitales modernas, seguras y elegantes que reflejan profesionalismo y estilo. 
+      En HerJos, convertimos tu presencia digital en una experiencia confiable y atractiva.
+    </p>
+    <a href="#contacto" class="btn">Comienza tu proyecto</a>
+  </div>
+
+  <!-- Sección de Servicios / Enfoque -->
+  <section id="enfoque">
+    <h2 class="section-title">Lo que define a HerJos</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Elegancia y Diseño</h3>
+        <p>Interfaces bien estructuradas con estética cuidada, pensadas para proyectar solidez y alta calidad desde el primer segundo.</p>
+      </div>
+      <div class="card">
+        <h3>Rendimiento y Seguridad</h3>
+        <p>Desarrollo optimizado para tiempos de carga rápidos, diseño responsive adaptable a móviles y buenas prácticas web.</p>
+      </div>
+      <div class="card">
+        <h3>Confianza Digital</h3>
+        <p>Estructuras claras que facilitan la navegación de tus usuarios, transmitiendo credibilidad en cada detalle.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sección de Accesos (Ideal para cuando agregues tu CV u otras páginas) -->
+  <section id="accesos">
+    <h2 class="section-title">Explora más</h2>
+    <div class="links-section">
+      
+      <!-- Enlace preparado para tu CV -->
+      <div class="link-card">
+        <div>
+          <h4>Curriculum Vitae / Trayectoria</h4>
+          <p>Conoce más sobre la experiencia profesional, perfil técnico y habilidades detrás de HerJos.</p>
+        </div>
+        <a href="cv.html" class="btn-outline">Ver CV</a>
+      </div>
+
+      <!-- Enlace preparado para Proyectos o Portafolio -->
+      <div class="link-card">
+        <div>
+          <h4>Portafolio de Proyectos</h4>
+          <p>Muestras de sitios web, aplicaciones y desarrollos realizados.</p>
+        </div>
+        <a href="#contacto" class="btn-outline">Consultar</a>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Sección de Contacto Directo -->
+  <section id="contacto">
+    <div class="contact-container">
+      <h2 class="section-title">¿Tienes un proyecto en mente?</h2>
+      <p style="margin-bottom: 25px;">Escríbenos para impulsar tu presencia digital con la elegancia y seguridad que tu marca merece.</p>
+      <a href="mailto:contacto@herjos.com" class="btn">Enviar correo</a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    © 2026 HerJos — Creación de sitios web y presencia digital.
+  </footer>
+
+</body>
+</html>
