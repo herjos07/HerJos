@@ -1,0 +1,4 @@
+     User-agent: *
+     Allow: /
+
+     Sitemap: https://herjos.com/cuentacuentos/sitemap-index.xml
