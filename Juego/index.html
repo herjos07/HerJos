@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Wobbly Cargo</title>
+<style>
+  :root{
+    --banner-space: 100px; /* respaldo generoso — se ajusta solo en cuanto el anuncio real avisa su tamaño */
+    --asphalt: #1B2430;
+    --asphalt-2: #232E3D;
+    --steel: #3E5C76;
+    --safety: #F4B400;
+    --safety-dim: #B98600;
+    --danger: #E85D4C;
+    --ok: #4CAF7D;
+    --paper: #ECEFF3;
+    --paper-dim: #B9C2CE;
+    --shadow: rgba(0,0,0,0.35);
+    --border-soft: #2E3B4C;
+    --bg-grad-1: #2A3644;
+    --bg-grad-2: #1B2430;
+    --bg-grad-3: #111720;
+    --cardboard: #C08A52;
+    --cardboard-dark: #96683A;
+    --glass: #8FD3E8;
+    --glass-dark: #4C97AE;
+    --metal: #7A8A96;
+    --metal-dark: #4B5860;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --asphalt: #EEF0F4;
+      --asphalt-2: #FFFFFF;
+      --steel: #4C6C89;
+      --safety-dim: #A87700;
+      --paper: #1B2430;
+      --paper-dim: #5B6B7A;
+      --shadow: rgba(30,40,55,0.15);
+      --border-soft: #D8DCE3;
+      --bg-grad-1: #FFFFFF;
+      --bg-grad-2: #EEF0F4;
+      --bg-grad-3: #E2E6EC;
+    }
+  }
+  *{ box-sizing:border-box; -webkit-user-select:none; user-select:none; }
+  html,body{
+    margin:0; padding:0; height:100%; overflow:hidden;
+    background: radial-gradient(circle at 20% -10%, var(--bg-grad-1) 0%, var(--bg-grad-2) 55%, var(--bg-grad-3) 100%);
+    color: var(--paper);
+    font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+  #app{
+    max-width: 480px;
+    margin: 0 auto;
+    height: 100vh;
+    height: 100dvh;
+    padding:
+      calc(env(safe-area-inset-top, 0px) + 8px)
+      calc(14px + env(safe-area-inset-right, 0px))
+      calc(var(--banner-space) + env(safe-area-inset-bottom, 0px) + 10px)
+      calc(14px + env(safe-area-inset-left, 0px));
+    display:flex; flex-direction:column; gap:6px;
+    touch-action: none;
+    overflow-y:auto; /* red de seguridad: si algo no cupiera, se puede hacer scroll en vez de romperse */
+  }
+  /* Solo #truck-scene debe encogerse cuando falta espacio — todo lo demás
+     conserva su tamaño natural (si no, el navegador encoge TODO por igual
+     y las filas del almacén terminan encimadas con los botones). */
+  #app > *{ flex-shrink: 0; }
+  .hazard-strip{
+    height: 6px;
+    margin: 0 calc(-14px - env(safe-area-inset-right, 0px)) 5px calc(-14px - env(safe-area-inset-left, 0px));
+    background: repeating-linear-gradient(135deg,
+      var(--safety) 0 14px, #1B2430 14px 28px);
+    opacity: 0.9;
+  }
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    border-bottom: 3px solid var(--safety);
+    padding-bottom:6px; gap:4px; flex-wrap:nowrap;
+  }
+  header h1{
+    font-size: 21px; letter-spacing: 1px; margin:0; font-weight: 800;
+    text-transform: uppercase; font-stretch: condensed;
+    flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  header h1 span{ color: var(--safety); }
+  #level-badge{
+    background: var(--steel); color: var(--paper); font-weight:700;
+    padding: 3px 7px; border-radius: 3px; font-size: 11px; letter-spacing:0.5px; white-space:nowrap;
+  }
+  #sound-toggle, .icon-btn{
+    background:none; border:none; color:var(--paper-dim);
+    font-size:15px; padding:2px 3px; flex:0 0 auto; cursor:pointer;
+  }
+
+  /* ---------- MODALES (Ranking / Ayuda) ---------- */
+  #modal-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:60;
+    display:none; pointer-events:auto; touch-action:manipulation;
+  }
+  #modal-backdrop.open{ display:block; }
+  .modal-panel{
+    position:fixed; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:min(420px, 88vw); max-height:74vh; overflow-y:auto;
+    background: var(--asphalt-2); border:1px solid var(--steel); border-radius:12px;
+    padding:14px 16px; z-index:61; display:none;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+  }
+  .modal-panel.open{ display:block; }
+  .modal-header{
+    display:flex; justify-content:space-between; align-items:center;
+    font-weight:700; margin-bottom:10px; font-size:15px;
+  }
+  .modal-close{
+    background:none; border:none; color:var(--paper-dim); font-size:16px; cursor:pointer;
+  }
+
+  /* ---------- TUTORIAL DE BIENVENIDA ---------- */
+  #tut-stage{ position:relative; height:170px; margin:6px 0 4px; }
+  #tut-target{
+    position:absolute; top:8px; right:26px; width:64px; height:64px;
+    border:3px dashed var(--safety); border-radius:8px;
+    animation: tutTargetFlash 2.6s ease-in-out infinite;
+  }
+  #tut-box{
+    position:absolute; left:26px; bottom:8px; width:46px; height:46px; border-radius:6px;
+    background: linear-gradient(180deg, var(--cardboard), var(--cardboard-dark));
+    box-shadow: 0 3px 6px var(--shadow);
+    animation: tutBoxMove 2.6s ease-in-out infinite;
+  }
+  #tut-hand{
+    position:absolute; left:40px; bottom:16px; font-size:32px; line-height:1;
+    animation: tutHandMove 2.6s ease-in-out infinite;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+  }
+  @keyframes tutBoxMove{
+    0%{ transform: translate(0,0) scale(1); opacity:0; }
+    8%{ opacity:1; }
+    20%{ transform: translate(0,0) scale(0.92); }
+    55%{ transform: translate(132px,-96px) scale(0.92); }
+    64%{ transform: translate(132px,-96px) scale(1.12); }
+    75%,85%{ transform: translate(132px,-96px) scale(1); }
+    96%,100%{ transform: translate(132px,-96px) scale(1); opacity:0; }
+  }
+  @keyframes tutHandMove{
+    0%{ transform: translate(0,0); opacity:0; }
+    8%{ opacity:1; transform: translate(0,0); }
+    20%{ transform: translate(0,0) scale(0.92); }
+    55%{ transform: translate(132px,-96px) scale(0.92); }
+    70%{ transform: translate(132px,-96px) scale(1); }
+    85%{ opacity:1; transform: translate(132px,-96px); }
+    96%,100%{ opacity:0; transform: translate(132px,-96px); }
+  }
+  @keyframes tutTargetFlash{
+    0%,58%{ border-color: var(--safety); box-shadow:none; }
+    66%,82%{ border-color: var(--ok); box-shadow:0 0 16px rgba(76,175,125,0.6); }
+    92%,100%{ border-color: var(--safety); box-shadow:none; }
+  }
+
+  #tut-stage-2{ position:relative; height:170px; margin:6px 0 4px; display:flex; align-items:center; justify-content:center; }
+  #tut-rotpiece{
+    width:38px; height:104px; border-radius:8px;
+    background: linear-gradient(180deg, var(--cardboard), var(--cardboard-dark));
+    box-shadow: 0 3px 6px var(--shadow);
+    animation: tutRotatePiece 2.3s ease-in-out infinite;
+  }
+  @keyframes tutRotatePiece{
+    0%,10%{ transform:rotate(0deg); }
+    42%,64%{ transform:rotate(90deg); }
+    92%,100%{ transform:rotate(0deg); }
+  }
+  #tut-rotbtn{
+    position:absolute; width:34px; height:34px; border-radius:50%;
+    background: var(--asphalt-2); border:2px solid var(--steel); color:var(--paper);
+    font-size:18px; display:flex; align-items:center; justify-content:center;
+    top: 22px; left: calc(50% + 26px);
+    animation: tutRotBtnTap 2.3s ease-in-out infinite;
+  }
+  @keyframes tutRotBtnTap{
+    0%,24%{ transform:scale(1); background:var(--asphalt-2); }
+    32%{ transform:scale(0.82); background:var(--safety); color:#1B2430; }
+    40%,100%{ transform:scale(1); background:var(--asphalt-2); color:var(--paper); }
+  }
+  #tut-taphand{
+    position:absolute; font-size:26px; top: 4px; left: calc(50% + 22px);
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+    animation: tutTapHand 2.3s ease-in-out infinite;
+  }
+  @keyframes tutTapHand{
+    0%,18%{ opacity:0; transform:translateY(-12px); }
+    26%{ opacity:1; transform:translateY(0); }
+    33%{ transform:translateY(3px); }
+    40%,58%{ opacity:1; transform:translateY(0); }
+    66%,100%{ opacity:0; transform:translateY(-6px); }
+  }
+
+  .tut-dot{ width:7px; height:7px; border-radius:50%; background: var(--border-soft); transition: background .2s; }
+  .tut-dot.active{ background: var(--safety); }
+
+  #status-row{ display:flex; gap:10px; }
+  .stat-box{
+    flex:1; background: var(--asphalt-2); border: 1px solid var(--border-soft);
+    border-radius: 6px; padding: 5px 8px;
+  }
+  .stat-box .label{
+    font-size: 10px; letter-spacing: 1px; text-transform:uppercase;
+    color: var(--paper-dim); margin-bottom:3px;
+  }
+  .stat-box .value{ font-size:16px; font-weight:700; }
+  .stat-box.warn .value{ color: var(--danger); }
+  #weight-bar-track{ height:6px; background:#141b24; border-radius:3px; margin-top:6px; overflow:hidden; }
+  #weight-bar-fill{ height:100%; background: var(--ok); width:0%; transition: width .25s ease, background .25s ease; }
+
+  /* ---------- CAMIÓN (silueta) ---------- */
+  #truck-scene{
+    display:flex; align-items:flex-end; gap:0;
+    flex: 1 1 auto; min-height: 165px;
+  }
+  #truck-cab{
+    width: 40px; align-self:flex-end; margin-bottom:6px; flex:0 0 auto;
+  }
+  #truck-cab svg{ display:block; width:100%; height:auto; }
+  #truck-wrap{
+    position:relative; overflow:visible;
+    flex: 1 1 auto; min-height: 0; align-self:stretch;
+    background: linear-gradient(180deg, #2A3644, #1E2733);
+    border: 2px solid var(--steel);
+    border-top-left-radius: 4px; border-top-right-radius: 10px;
+    padding: 7px 7px 9px;
+    box-shadow: inset 0 2px 10px var(--shadow);
+    display:flex; align-items:center; justify-content:center;
+  }
+  #truck-grid{
+    display:grid; gap:3px; margin: 0 auto; position:relative;
+  }
+  .cell{
+    background: repeating-linear-gradient(45deg, #16202B, #16202B 6px, #131C25 6px, #131C25 12px);
+    border: 1px dashed var(--border-soft); border-radius: 4px;
+  }
+  #truck-wheels{
+    display:flex; justify-content:space-around; margin: -8px 6px 0;
+    position:relative; z-index:1; flex: 0 0 auto;
+  }
+  .wheel{
+    width:20px; height:20px; border-radius:50%;
+    background: radial-gradient(circle at 35% 35%, #555, #111 70%);
+    border: 3px solid #0C1218;
+  }
+
+  /* ---------- PAQUETES (por material) ---------- */
+  .pkg{
+    position:relative;
+    border-radius: 5px; display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    font-size: 10.5px; font-weight:700; color:#1B2430;
+    box-shadow: 0 2px 4px var(--shadow);
+    border: 2px solid rgba(0,0,0,0.18);
+    padding: 2px; text-align:center; line-height:1.15;
+    touch-action:none; cursor:grab;
+  }
+  .pkg.dragging-hidden{ visibility:hidden; }
+  .pkg small{ font-weight:600; opacity:.8; font-size:9px; }
+  .pkg.selected-ghost{ outline: 3px solid var(--safety); }
+  .pkg .icons{ font-size: 12px; }
+
+  .pkg.mat-cardboard, .inv-item.mat-cardboard{
+    background:
+      linear-gradient(135deg, transparent 46%, rgba(0,0,0,0.18) 47%, rgba(0,0,0,0.18) 53%, transparent 54%),
+      linear-gradient(45deg, transparent 46%, rgba(0,0,0,0.18) 47%, rgba(0,0,0,0.18) 53%, transparent 54%),
+      linear-gradient(180deg, var(--cardboard), var(--cardboard-dark));
+  }
+  .pkg.mat-glass, .inv-item.mat-glass{
+    background: linear-gradient(160deg, #D8F3F9 0%, var(--glass) 45%, var(--glass-dark) 100%);
+    border-style: dashed;
+    border-color: rgba(255,255,255,0.6);
+    box-shadow: 0 2px 4px var(--shadow), inset 0 0 10px rgba(255,255,255,0.5);
+  }
+  .pkg.mat-metal, .inv-item.mat-metal{
+    background:
+      repeating-linear-gradient(135deg, rgba(255,255,255,0.08) 0 6px, transparent 6px 16px),
+      linear-gradient(180deg, var(--metal), var(--metal-dark));
+    color:#fff;
+  }
+  .pkg .fragile-shine{
+    position:absolute; top:2px; left:6px; right:6px; height:3px;
+    background: rgba(255,255,255,0.85); border-radius:2px;
+  }
+  .pkg .heavy-arrow{ position:absolute; bottom:1px; right:3px; font-size:9px; opacity:.85; }
+
+  /* ---------- ARRASTRE ---------- */
+  #drag-ghost{
+    position:fixed; pointer-events:none; z-index:999;
+    border-radius:5px; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; font-weight:700; color:#1B2430;
+    font-size:10.5px; box-shadow: 0 6px 14px rgba(0,0,0,0.5);
+    border: 3px solid var(--ok); opacity:0.95; transform:scale(1.04);
+    display:none;
+  }
+  #drag-ghost.invalid{ border-color: var(--danger); }
+
+  #drop-preview{
+    position:absolute; pointer-events:none; border-radius:4px;
+    background: rgba(76,175,125,0.28); border: 2px solid var(--ok);
+    display:none; z-index:5;
+  }
+  #drop-preview.invalid{ background: rgba(232,93,76,0.28); border-color: var(--danger); }
+
+  /* ---------- BALANCE EN VIVO ---------- */
+  #balance-wrap{
+    margin-top:4px; padding-top:5px; border-top:1px dashed var(--border-soft);
+  }
+  #balance-label{
+    font-size:10px; text-transform:uppercase; letter-spacing:1px;
+    color:var(--paper-dim); margin-bottom:5px; display:flex; justify-content:space-between;
+  }
+  #balance-track{
+    position:relative; height:14px; background:#141b24; border-radius:7px;
+    border:1px solid var(--border-soft); overflow:hidden;
+  }
+  #balance-track::before{
+    content:""; position:absolute; left:50%; top:0; bottom:0; width:2px;
+    background: var(--paper-dim); transform:translateX(-1px); opacity:.6;
+  }
+  #balance-needle{
+    position:absolute; top:1px; bottom:1px; width:14px; border-radius:7px;
+    background: var(--ok); left:50%; transform:translateX(-50%);
+    transition: left .2s ease, background .2s ease;
+  }
+  #balance-needle.off{ background: var(--danger); }
+
+  /* ---------- ALMACÉN ---------- */
+  #inventory-label{
+    font-size: 10px; text-transform:uppercase; letter-spacing:1px; color:var(--paper-dim);
+    margin: 2px 0 -2px 2px;
+  }
+  #inventory{
+    display:flex; flex-wrap:wrap; gap:6px; min-height: 50px; padding: 6px;
+    background: var(--asphalt-2); border-radius: 8px; border: 1px solid var(--border-soft);
+  }
+  .inv-item{
+    width: 58px; height:58px; border-radius:7px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    font-size:11px; font-weight:700; color:#1B2430;
+    position:relative; touch-action:none; cursor:grab;
+  }
+  .inv-item.selected{ outline: 3px solid var(--safety); transform: translateY(-2px); }
+  .inv-item .dims{ font-size:10px; opacity:.75; }
+  .inv-empty{ color: var(--paper-dim); font-size:12px; align-self:center; padding:8px; }
+  .rotate-btn{
+    position:absolute; top:-9px; right:-9px; width:25px; height:25px;
+    border-radius:50%; background: var(--asphalt-2); border:1px solid var(--steel);
+    color: var(--paper); font-size:12px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; z-index:2;
+  }
+
+  #controls{ display:flex; gap:8px; }
+  button{
+    font-family: inherit; font-weight:700; letter-spacing:0.5px;
+    border:none; border-radius:7px; padding: 8px 8px; cursor:pointer;
+    font-size:13px; text-transform:uppercase; flex:1;
+    transition: transform .1s ease, filter .1s ease;
+  }
+  button:active{ transform: scale(0.96); filter: brightness(0.92); }
+  button:disabled{ opacity:0.45; cursor:default; filter:none; transform:none; }
+  #btn-start{ background: var(--safety); color:#1B2430; }
+  #btn-reset{ background: var(--asphalt-2); color: var(--paper); border:1px solid var(--border-soft); flex: 0 0 auto; width:140px; }
+
+  #message{
+    position:fixed; left:50%; bottom: calc(var(--banner-space) + env(safe-area-inset-bottom, 0px) + 10px);
+    transform: translateX(-50%) translateY(0);
+    width:min(92vw, 440px);
+    min-height: 20px; font-size: 13.5px; font-weight:700; text-align:center;
+    padding: 11px 16px; border-radius: 10px; z-index:55;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+    display:none;
+  }
+  #message.show{ display:block; animation: toastIn .22s ease-out; }
+  @keyframes toastIn{ from{ opacity:0; transform: translateX(-50%) translateY(10px);} to{ opacity:1; transform: translateX(-50%) translateY(0);} }
+  #message.ok{ background: #1E3A2E; color: #6FE0A3; border:1px solid rgba(76,175,125,0.5); }
+  #message.bad{ background: #3A2320; color: #FF9A85; border:1px solid rgba(232,93,76,0.5); }
+
+  #stars{ text-align:center; font-size: 30px; letter-spacing:6px; display:none; }
+
+  #howto{
+    font-size:11.5px; color: var(--paper-dim); line-height:1.5;
+    background: var(--asphalt-2); border-radius:8px; padding:10px 12px; border: 1px solid var(--border-soft);
+  }
+  #howto b{ color: var(--paper); }
+
+  #stars-total{
+    font-size:11px; font-weight:700; color: var(--safety);
+    background: var(--asphalt-2); border:1px solid var(--border-soft); border-radius:5px; padding:3px 5px; white-space:nowrap;
+  }
+
+  #btn-hint, #btn-skip{ background: var(--steel); color: var(--paper); }
+
+  .hint-preview{
+    position:relative; border-radius:6px; pointer-events:none; z-index:6;
+    border: 5px dashed var(--safety); background: rgba(244,180,0,0.14);
+    animation: hintPulse 0.55s ease infinite alternate;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: 0 0 0 4px rgba(244,180,0,0.25), 0 0 22px rgba(244,180,0,0.55);
+  }
+  .hint-preview::after{
+    content: "💡"; font-size: 30px;
+    filter: drop-shadow(0 0 4px rgba(0,0,0,0.7));
+  }
+  @keyframes hintPulse{ from{ opacity:0.65; transform:scale(0.94); } to{ opacity:1; transform:scale(1.04); } }
+  .hint-preview.leaving{ animation:none; opacity:0; transition:opacity .35s ease; }
+  .inv-item.hint-pulse, .pkg.hint-pulse{ animation: hintTileGlow 0.5s ease infinite alternate; }
+  @keyframes hintTileGlow{
+    from{ box-shadow: 0 0 0 0 rgba(244,180,0,0.9); }
+    to{ box-shadow: 0 0 0 6px rgba(244,180,0,0.15); }
+  }
+
+  #leaderboard-wrap{ margin-top: -4px; }
+  #leaderboard{
+    background: var(--asphalt-2); border:1px solid var(--border-soft); border-radius:8px;
+    padding: 6px 10px; display:flex; flex-direction:column; gap:2px;
+  }
+  .lb-row{
+    display:flex; justify-content:space-between; font-size:12px;
+    padding: 4px 2px; color: var(--paper-dim);
+  }
+  .lb-row.you{ color: var(--safety); font-weight:700; }
+
+  #ad-banner{
+    position: fixed; left:0; right:0; bottom:0; z-index:50;
+    min-height: 50px; padding-bottom: env(safe-area-inset-bottom, 0px);
+    display:flex; align-items:center; justify-content:center;
+    background: #10161D; border-top: 1px solid var(--steel);
+    color: var(--paper-dim); font-size: 10px; letter-spacing:0.5px;
+  }
+
+  /* ---------- ANIMACIONES ---------- */
+  @keyframes popIn{ 0%{transform:scale(0.4);opacity:0;} 70%{transform:scale(1.08);opacity:1;} 100%{transform:scale(1);} }
+  @keyframes shakeTruck{
+    0%,100%{ transform: translateX(0) rotate(0deg); }
+    15%{ transform: translateX(-6px) rotate(-1.2deg); }
+    30%{ transform: translateX(5px) rotate(1deg); }
+    45%{ transform: translateX(-4px) rotate(-0.8deg); }
+    60%{ transform: translateX(4px) rotate(0.6deg); }
+    75%{ transform: translateX(-2px) rotate(-0.3deg); }
+  }
+  @keyframes starPop{ 0%{transform:scale(0);opacity:0;} 60%{transform:scale(1.25);opacity:1;} 100%{transform:scale(1);} }
+  @keyframes badgePulse{ 0%{transform:scale(1);} 40%{transform:scale(1.18); background:var(--safety); color:#1B2430;} 100%{transform:scale(1);} }
+  @keyframes gridEnter{ 0%{opacity:0; transform:translateY(10px) scale(0.98);} 100%{opacity:1; transform:translateY(0) scale(1);} }
+  @keyframes errorFlash{
+    0%,100%{ box-shadow: 0 0 0 0 rgba(232,93,76,0); filter:brightness(1); }
+    25%{ box-shadow: 0 0 0 4px rgba(232,93,76,0.9); filter:brightness(1.3); }
+    50%{ box-shadow: 0 0 0 0 rgba(232,93,76,0); filter:brightness(1); }
+    75%{ box-shadow: 0 0 0 4px rgba(232,93,76,0.9); filter:brightness(1.3); }
+  }
+  .pkg.error-flash{ animation: errorFlash 0.6s ease 2; z-index:2; }
+  @keyframes confettiFall{ 0%{transform:translateY(0) rotate(0deg);opacity:1;} 100%{transform:translateY(220px) rotate(340deg);opacity:0;} }
+  .confetti{ position:absolute; width:8px; height:8px; top:0; left:50%; border-radius:2px; pointer-events:none; animation: confettiFall 900ms ease-in forwards; }
+
+  @media (prefers-reduced-motion: reduce){ *{ animation-duration:0.001s !important; transition-duration:0.001s !important; } }
+
+  .pkg.pop-in{ animation: popIn .28s cubic-bezier(.34,1.56,.64,1); }
+  .inv-item.pop-in{ animation: popIn .28s cubic-bezier(.34,1.56,.64,1); }
+  #truck-wrap.shake{ animation: shakeTruck .45s ease; }
+  #truck-wrap.grid-enter{ animation: gridEnter .3s ease; }
+  #stars.pop{ animation: starPop .4s cubic-bezier(.34,1.56,.64,1); }
+  #level-badge.pulse{ animation: badgePulse .5s ease; }
+  .stat-box.warn{ animation: shakeTruck .4s ease; }
+  .header-icons{ display:flex; align-items:center; gap:6px; flex:0 0 auto; }
+  #level-badge{ flex-shrink:0; }
+  #sound-toggle, .icon-btn, #stars-total{ flex-shrink:0; }
+
+  @media (max-width: 400px){
+    header h1{ font-size: 17px; }
+    .header-icons{ gap: 2px; }
+    #level-badge{ font-size: 9px; padding: 2px 5px; }
+    #sound-toggle, .icon-btn{ font-size: 13px; padding:2px; }
+    #stars-total{ font-size: 9px; padding: 2px 4px; }
+  }
+  @keyframes driveAway{
+    0%{ transform: translateX(0) rotate(0deg); opacity:1; }
+    70%{ transform: translateX(-60vw) rotate(1deg); opacity:1; }
+    100%{ transform: translateX(-120vw) rotate(1deg); opacity:0; }
+  }
+  @keyframes wheelSpinFast{
+    from{ transform:rotate(0deg); } to{ transform:rotate(1080deg); }
+  }
+  #truck-scene.drive-away, #truck-wheels.drive-away{
+    animation: driveAway 1.15s cubic-bezier(.6,0,.9,.3) forwards;
+  }
+  #truck-wheels.drive-away .wheel{ animation: wheelSpinFast .35s linear infinite; }
+  @keyframes driveIn{
+    0%{ transform: translateX(60px); opacity:0; }
+    100%{ transform: translateX(0); opacity:1; }
+  }
+  #truck-scene.drive-in, #truck-wheels.drive-in{ animation: driveIn .45s ease-out; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="hazard-strip"></div>
+  <div id="drag-ghost"></div>
+
+  <header>
+    <h1>Wobbly<span>Cargo</span></h1>
+    <div class="header-icons">
+      <span id="stars-total">⭐ 0</span>
+      <button id="btn-rank-toggle" class="icon-btn" title="Ranking">🏆</button>
+      <button id="btn-help-toggle" class="icon-btn" title="Cómo jugar">❓</button>
+      <button id="sound-toggle" class="icon-btn" title="Silenciar sonidos">🔊</button>
+      <div id="level-badge">NIVEL 1</div>
+    </div>
+  </header>
+
+  <div id="status-row">
+    <div class="stat-box" id="weight-box">
+      <div class="label">Peso</div>
+      <div class="value" id="weight-value">0 / 0</div>
+      <div id="weight-bar-track"><div id="weight-bar-fill"></div></div>
+    </div>
+    <div class="stat-box">
+      <div class="label">Paquetes</div>
+      <div class="value" id="pkg-count-value">0 / 0</div>
+    </div>
+  </div>
+
+  <div id="truck-scene">
+    <div id="truck-cab">
+      <svg viewBox="0 0 60 90" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6 90 V38 Q6 26 18 22 L44 22 Q54 22 54 34 V90 Z" fill="#2A3644" stroke="#3E5C76" stroke-width="2"/>
+        <rect x="14" y="30" width="26" height="18" rx="2" fill="#8FD3E8" opacity="0.6"/>
+        <circle cx="22" cy="90" r="9" fill="#111"/>
+        <circle cx="46" cy="90" r="9" fill="#111"/>
+      </svg>
+    </div>
+    <div id="truck-wrap">
+      <div id="truck-grid">
+        <div id="drop-preview"></div>
+      </div>
+    </div>
+  </div>
+  <div id="truck-wheels"><div class="wheel"></div><div class="wheel"></div><div class="wheel"></div></div>
+
+  <div id="balance-wrap">
+    <div id="balance-label"><span>◀ Izquierda</span><span>Balance</span><span>Derecha ▶</span></div>
+    <div id="balance-track"><div id="balance-needle"></div></div>
+  </div>
+
+  <div id="inventory-label">Almacén</div>
+  <div id="inventory"></div>
+
+  <div id="controls">
+    <button id="btn-reset">Reiniciar</button>
+    <button id="btn-start">Arrancar Camión</button>
+  </div>
+  <div id="controls" style="margin-top:-4px;">
+    <button id="btn-hint">💡 Pista (5⭐)</button>
+    <button id="btn-skip">⏭️ Saltar (15⭐)</button>
+  </div>
+
+  <div id="stars">☆☆☆</div>
+  <div id="message"></div>
+
+</div>
+
+<div id="modal-backdrop"></div>
+<div id="modal-rank" class="modal-panel">
+  <div class="modal-header"><span>🏆 Ranking</span><button class="modal-close" data-close="modal-rank">✕</button></div>
+  <div id="leaderboard"></div>
+</div>
+<div id="modal-help" class="modal-panel">
+  <div class="modal-header"><span>❓ Cómo jugar</span><button class="modal-close" data-close="modal-help">✕</button></div>
+  <div id="howto">
+    <b>Cómo jugar:</b> arrastra una caja del almacén hasta la rejilla — verás una sombra
+    verde si cabe o roja si no. Toca el ↻ para rotarla antes de soltarla. Arrastra un paquete
+    ya puesto para moverlo o sácalo del camión para devolverlo al almacén.
+    <b>❄️ cristal:</b> no soportan peso encima · <b>⬇️ metal:</b> deben ir en la base ·
+    la barra de <b>Balance</b> te avisa en vivo si el camión se está inclinando.
+    Gana <b>⭐ estrellas</b> al completar niveles y úsalas para pedir pistas o saltar niveles.
+  </div>
+</div>
+
+<div id="modal-tutorial" class="modal-panel" style="text-align:center;">
+  <div class="modal-header"><span>👋 ¡Bienvenido a Wobbly Cargo!</span><button class="modal-close" data-close="modal-tutorial">✕</button></div>
+
+  <div id="tut-slide-1">
+    <div id="tut-stage">
+      <div id="tut-target"></div>
+      <div id="tut-box"></div>
+      <div id="tut-hand">🖐️</div>
+    </div>
+    <p style="font-size:13px; color:var(--paper-dim); margin:2px 0 6px; line-height:1.5;">
+      Así de fácil: <b style="color:var(--paper);">arrastra</b> las cajas del almacén
+      hasta el camión para cargarlo.
+    </p>
+  </div>
+
+  <div id="tut-slide-2" style="display:none;">
+    <div id="tut-stage-2">
+      <div id="tut-rotpiece"></div>
+      <div id="tut-rotbtn">↻</div>
+      <div id="tut-taphand">👆</div>
+    </div>
+    <p style="font-size:13px; color:var(--paper-dim); margin:2px 0 6px; line-height:1.5;">
+      Si una pieza no cabe, toca <b style="color:var(--paper);">↻</b> para
+      <b style="color:var(--paper);">rotarla</b> antes de soltarla.
+    </p>
+  </div>
+
+  <div style="display:flex; gap:6px; align-items:center; justify-content:center; margin-bottom:12px;">
+    <span id="tut-dot-1" class="tut-dot active"></span>
+    <span id="tut-dot-2" class="tut-dot"></span>
+  </div>
+
+  <button id="btn-tutorial-next" style="width:100%; background:var(--safety); color:#1B2430; font-weight:800; border:none; border-radius:8px; padding:13px; font-size:14px; cursor:pointer;">Siguiente →</button>
+  <button id="btn-tutorial-close" style="width:100%; background:var(--safety); color:#1B2430; font-weight:800; border:none; border-radius:8px; padding:13px; font-size:14px; cursor:pointer; display:none;">¡Vamos a jugar! 🚚</button>
+</div>
+
+<div id="ad-banner"><!-- TODO AdMob: AdMob.showBanner(...) --> Espacio para banner de anuncios (320x50)</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- ESTADO ----------
+  let level = 1;
+  let gridCols, gridRows, maxWeight, balanceTolerance;
+  let packages = [];
+  let solved = false;
+  let lastPlacedId = null;
+  let lastReturnedId = null;
+  let history = []; // pila de acciones para deshacer
+
+  const PALETTE = ["#F4B400","#3E9C9C","#E07A5F","#8AB17D","#B08EA2","#5C9EAD","#E3B23C","#7C9CBF"];
+
+  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+  function rnd(min,max){ return min + Math.random()*(max-min); }
+  function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+  function materialOf(p){ return p.is_fragile ? "glass" : (p.heavy_bottom_only ? "metal" : "cardboard"); }
+
+  // ---------- GENERADOR PROCEDURAL (BSP) ----------
+  function buildBspBlocks(cols, rows, targetPackages){
+    let blocks = [{x:0,y:0,w:cols,h:rows}];
+    let guard = 0;
+    while(blocks.length < targetPackages && guard < 500){
+      guard++;
+      blocks.sort((a,b)=> (b.w*b.h) - (a.w*a.h));
+      const idx = blocks.findIndex(b => b.w > 1 || b.h > 1);
+      if(idx === -1) break;
+      const b = blocks[idx];
+      const canH = b.h > 1, canV = b.w > 1;
+      const axis = (canH && canV) ? (Math.random() < 0.5 ? 'h' : 'v') : (canH ? 'h' : 'v');
+      blocks.splice(idx,1);
+      if(axis === 'h'){
+        const cut = 1 + Math.floor(Math.random()*(b.h-1));
+        blocks.push({x:b.x, y:b.y, w:b.w, h:cut});
+        blocks.push({x:b.x, y:b.y+cut, w:b.w, h:b.h-cut});
+      } else {
+        const cut = 1 + Math.floor(Math.random()*(b.w-1));
+        blocks.push({x:b.x, y:b.y, w:cut, h:b.h});
+        blocks.push({x:b.x+cut, y:b.y, w:b.w-cut, h:b.h});
+      }
+    }
+    return blocks;
+  }
+
+  // Revisa si la posición original del corte BSP (guardada en solX/solY)
+  // realmente pasa TODAS las reglas del validador. Si no, el nivel se
+  // descarta y se genera otro — así garantizamos que siempre existe
+  // al menos una solución real, y la pista nunca mentirá.
+  function solutionIsValid(pkgs, cols, tolerance){
+    const occ = (gx,gy) => pkgs.find(p => gx>=p.solX && gx<p.solX+p.solW && gy>=p.solY && gy<p.solY+p.solH);
+    for(const p of pkgs){
+      if(p.heavy_bottom_only && p.solY > 0) return false;
+      if(p.is_fragile){
+        let above = 0; const seen = new Set();
+        for(let xx=p.solX; xx<p.solX+p.solW; xx++){
+          const a = occ(xx, p.solY+p.solH);
+          if(a && !seen.has(a.id)){ seen.add(a.id); above += a.weight; }
+        }
+        if(above > 15.0) return false;
+      }
+    }
+    const totalWeight = pkgs.reduce((s,p)=>s+p.weight,0);
+    let weightedX = 0;
+    pkgs.forEach(p => weightedX += (p.solX + p.solW/2.0) * p.weight);
+    const dev = Math.abs((weightedX/totalWeight) - cols/2.0) / cols;
+    return dev <= tolerance;
+  }
+
+  function generateLevel(n){
+    gridCols = clamp(3 + Math.floor(n/15), 3, 6);
+    gridRows = clamp(3 + Math.floor(n/20), 3, 5);
+    const targetPackages = clamp(3 + Math.floor(n/8), 3, 10);
+    balanceTolerance = Math.max(0.05, 0.25 - n*0.0015);
+
+    let candidatePkgs = null;
+    for(let attempt = 0; attempt < 80 && !candidatePkgs; attempt++){
+      const blocks = buildBspBlocks(gridCols, gridRows, targetPackages);
+      const pkgs = blocks.map((b,i)=>{
+        const weight = +rnd(10,50).toFixed(1);
+        const is_fragile = n > 10 && Math.random() < 0.10 && (b.w*b.h <= 2);
+        // solo se marca "pesado, va en la base" si su posición de origen
+        // YA está en la base — así nunca generamos una regla imposible.
+        const heavy_bottom_only = !is_fragile && n > 25 && weight > 40 && b.y === 0;
+        // Antes la pieza SIEMPRE nacía ya en su orientación correcta, así
+        // que rotar nunca hacía falta. Ahora, si no es cuadrada, hay 50% de
+        // probabilidad de que nazca "volteada" — el jugador sí necesita
+        // usar el botón ↻ para acomodarla en su posición solución.
+        let width = b.w, height = b.h;
+        if(width !== height && Math.random() < 0.5){ const t = width; width = height; height = t; }
+        return {
+          id: "PKG_" + String(i+1).padStart(2,"0"),
+          width, height,
+          solW: b.w, solH: b.h, // orientación real que necesita en la solución
+          weight, is_fragile, heavy_bottom_only,
+          color: PALETTE[i % PALETTE.length],
+          solX: b.x, solY: b.y,
+          placed: false, x: null, y: null
+        };
+      });
+      if(solutionIsValid(pkgs, gridCols, balanceTolerance)) candidatePkgs = pkgs;
+    }
+    // Si en 80 intentos no salió nada (muy improbable), se usa el último
+    // como respaldo para no dejar al jugador sin nivel.
+    packages = candidatePkgs || packages;
+    packages.sort(() => Math.random() - 0.5);
+
+    maxWeight = +(packages.reduce((s,p)=>s+p.weight,0) * 1.25).toFixed(1);
+    solved = false;
+    history = [];
+    starsAwardedThisLevel = false;
+  }
+
+  function resetPlacement(){
+    packages.forEach(p => { p.placed = false; p.x = null; p.y = null; });
+    solved = false;
+    history = [];
+  }
+
+  // ---------- LÓGICA DE REJILLA ----------
+  function occupantAt(gx, gy, ignoreId){
+    return packages.find(p => p.placed && p.id !== ignoreId && gx >= p.x && gx < p.x+p.width && gy >= p.y && gy < p.y+p.height);
+  }
+  function canPlace(pkg, gx, gy, ignoreId){
+    if(gx < 0 || gy < 0 || gx+pkg.width > gridCols || gy+pkg.height > gridRows) return false;
+    for(let yy=gy; yy<gy+pkg.height; yy++)
+      for(let xx=gx; xx<gx+pkg.width; xx++)
+        if(occupantAt(xx,yy,ignoreId)) return false;
+    return true;
+  }
+  function hasSupport(pkg){
+    if(pkg.y === 0) return true;
+    for(let xx=pkg.x; xx<pkg.x+pkg.width; xx++) if(!occupantAt(xx, pkg.y-1)) return false;
+    return true;
+  }
+  function weightAbove(pkg){
+    let total = 0; const seen = new Set();
+    for(let xx=pkg.x; xx<pkg.x+pkg.width; xx++){
+      const above = occupantAt(xx, pkg.y+pkg.height);
+      if(above && !seen.has(above.id)){ seen.add(above.id); total += above.weight; }
+    }
+    return total;
+  }
+
+  // ---------- BALANCE EN VIVO ----------
+  function computeBalance(){
+    const placed = packages.filter(p => p.placed);
+    const targetComX = gridCols / 2.0;
+    if(placed.length === 0) return {dev:0, sign:0, hasCargo:false};
+    const totalWeight = placed.reduce((s,p)=>s+p.weight,0);
+    let weightedX = 0;
+    placed.forEach(p => weightedX += (p.x + p.width/2.0) * p.weight);
+    const actualComX = weightedX/totalWeight;
+    const rawDev = (actualComX - targetComX) / gridCols;
+    return {dev: Math.abs(rawDev), sign: rawDev, hasCargo:true};
+  }
+
+  // ---------- VALIDADOR ----------
+  function validateTruckLoading(){
+    const placed = packages.filter(p => p.placed);
+    if(placed.length < packages.length)
+      return {success:false, code:"ERR_MISSING_CARGO", msg:"Faltan paquetes por cargar.", offenders:[]};
+
+    const totalWeight = placed.reduce((s,p)=>s+p.weight,0);
+    if(totalWeight > maxWeight)
+      return {success:false, code:"ERR_OVERWEIGHT", msg:"¡El camión excede el peso máximo permitido!", offenders: placed.map(p=>p.id)};
+
+    for(const p of placed){
+      if(p.y > 0 && !hasSupport(p))
+        return {success:false, code:"ERR_FLOATING_CARGO", msg:`El paquete ${p.id} no tiene soporte estable abajo.`, offenders:[p.id]};
+    }
+    for(const p of placed){
+      if(p.heavy_bottom_only && p.y > 0)
+        return {success:false, code:"ERR_HEAVY_HIGH", msg:"Las cargas muy pesadas deben ir en la base.", offenders:[p.id]};
+      if(p.is_fragile && weightAbove(p) > 15.0)
+        return {success:false, code:"ERR_FRAGILE_CRUSHED", msg:"¡Aplastaste un paquete frágil!", offenders:[p.id]};
+    }
+
+    const bal = computeBalance();
+    if(bal.dev <= balanceTolerance){
+      const stars = bal.dev <= balanceTolerance*0.33 ? 3 : (bal.dev <= balanceTolerance*0.66 ? 2 : 1);
+      return {success:true, code:"SUCCESS", stars, msg:"¡Carga equilibrada con éxito!", offenders:[]};
+    }
+    return {success:false, code:"ERR_UNBALANCED", msg:"¡Centro de gravedad descompensado! El camión se vuelca.", offenders: placed.map(p=>p.id)};
+  }
+
+  // ---------- SONIDO ----------
+  let soundOn = true;
+  let audioCtx = null;
+  function ensureAudio(){
+    if(!audioCtx){ const Ctx = window.AudioContext || window.webkitAudioContext; if(Ctx) audioCtx = new Ctx(); }
+    return audioCtx;
+  }
+  function beep(freq, duration, type, glideTo){
+    if(!soundOn) return;
+    const ctx = ensureAudio(); if(!ctx) return;
+    const osc = ctx.createOscillator(); const gain = ctx.createGain();
+    osc.type = type || "square";
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    if(glideTo) osc.frequency.exponentialRampToValueAtTime(glideTo, ctx.currentTime + duration);
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + duration);
+  }
+  function sfxPlace(pkg){
+    // más pesado = tono más grave y largo; frágil = "ting" agudo encima
+    const f = clamp(700 - pkg.weight*8, 160, 700);
+    beep(f, 0.09 + pkg.weight*0.002, pkg.heavy_bottom_only ? "sawtooth" : "square");
+    if(pkg.is_fragile) setTimeout(() => beep(1400, 0.12, "sine"), 60);
+  }
+  function sfxError(){ beep(220, 0.25, "sawtooth", 90); }
+  function sfxWin(){ [660,880,1100].forEach((f,i)=> setTimeout(()=>beep(f,0.15,"triangle"), i*90)); }
+
+  // ---------- ANUNCIOS (AdMob real, vía @capacitor-community/admob) ----------
+  // IDs DE PRUEBA de Google — déjalos así mientras desarrollas.
+  // Cuando vayas a publicar la versión final, cámbialos por TUS
+  // propios Ad Unit ID (los que creaste en la Parte A de guia_admob.txt).
+  // Son solo estas 3 líneas las que hay que tocar antes de publicar:
+  const ADMOB_BANNER_ID       = "ca-app-pub-8110695346048617/2219621149";
+  const ADMOB_INTERSTITIAL_ID = "ca-app-pub-8110695346048617/8826864271";
+  const ADMOB_REWARDED_ID     = "ca-app-pub-8110695346048617/1836477765";
+
+  // Capacitor inyecta esto automáticamente cuando el juego corre DENTRO
+  // de la app instalada (no existe si solo abres el HTML en un navegador
+  // normal de escritorio) — por eso todo tiene respaldo "simulado".
+  const AdMobPlugin = (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.AdMob) || null;
+
+  async function initAds(){
+    if(!AdMobPlugin) return; // no estamos dentro de la app empacada — se queda en modo simulado
+    try{
+      await AdMobPlugin.initialize({ initializeForTesting: true });
+      // Escucha el tamaño REAL del banner (los anuncios "adaptativos" que
+      // usa Google pueden medir más de 50px de alto según el dispositivo,
+      // como viste en tu captura) y ajusta el espacio reservado en vivo,
+      // en vez de asumir un número fijo que a veces se quedaba corto.
+      AdMobPlugin.addListener("onBannerAdSizeChanged", (size) => {
+        if(size && size.height > 0){
+          document.documentElement.style.setProperty("--banner-space", (size.height + 10) + "px");
+        }
+      });
+      await AdMobPlugin.showBanner({
+        adId: ADMOB_BANNER_ID,
+        adSize: "ADAPTIVE_BANNER",
+        position: "BOTTOM_CENTER",
+        margin: 0
+      });
+      const placeholder = document.getElementById("ad-banner");
+      if(placeholder) placeholder.style.display = "none"; // el banner real ya es nativo, no hace falta el texto de relleno
+    }catch(e){ console.warn("[AdMob] no se pudo inicializar/mostrar el banner:", e); }
+  }
+
+  async function showRewardedAdStub(placement, onReward, onDone){
+    const finish = () => { if(onDone) onDone(); };
+    if(!AdMobPlugin){
+      showMessage("🎬 (simulado — no estás dentro de la app) Video de " + placement + "…", true);
+      setTimeout(() => { onReward(); finish(); }, 900);
+      return;
+    }
+    try{
+      let settled = false;
+      const rewardHandle = await AdMobPlugin.addListener("onRewardedVideoAdReward", () => {
+        // Este es el ÚNICO evento fiable: solo se dispara si el usuario
+        // realmente vio el video completo y ganó la recompensa. Los
+        // anuncios recompensados normales de este plugin NO tienen un
+        // evento de "cerrado" aparte, así que damos la recompensa apenas
+        // llega este evento, en vez de esperar algo que nunca pasa.
+        if(settled) return;
+        settled = true;
+        rewardHandle.remove();
+        onReward();
+        finish();
+      });
+      await AdMobPlugin.prepareRewardVideoAd({ adId: ADMOB_REWARDED_ID });
+      await AdMobPlugin.showRewardVideoAd();
+      // Respaldo: si en 90 segundos no llegó la recompensa (el usuario
+      // cerró el video antes de tiempo), avisamos que no se completó.
+      setTimeout(() => {
+        if(settled) return;
+        settled = true;
+        rewardHandle.remove();
+        showMessage("No se completó el video — inténtalo de nuevo.", false);
+        finish();
+      }, 90000);
+    }catch(e){
+      console.warn("[AdMob] no se pudo mostrar el recompensado:", e);
+      showMessage("No se pudo cargar el anuncio, inténtalo más tarde.", false);
+      finish();
+    }
+  }
+
+  async function showInterstitialStub(){
+    if(!AdMobPlugin){ console.log("[AdMob] (modo simulado) intersticial cada 3 niveles."); return; }
+    try{
+      await AdMobPlugin.prepareInterstitial({ adId: ADMOB_INTERSTITIAL_ID });
+      await AdMobPlugin.showInterstitial();
+    }catch(e){ console.warn("[AdMob] no se pudo mostrar el intersticial:", e); }
+  }
+
+  // ---------- ESTRELLAS COMO MONEDA ----------
+  let totalStars = 0;
+  let starsAwardedThisLevel = false;
+  const HINT_COST = 5;
+  const SKIP_COST = 15;
+  const SAVE_KEY = "wobblyCargoSave";
+
+  function saveProgress(){
+    try{
+      localStorage.setItem(SAVE_KEY, JSON.stringify({level, totalStars}));
+    }catch(e){ console.warn("No se pudo guardar el progreso (localStorage no disponible).", e); }
+  }
+  function loadProgress(){
+    try{
+      const raw = localStorage.getItem(SAVE_KEY);
+      if(raw){
+        const data = JSON.parse(raw);
+        if(typeof data.level === "number" && data.level >= 1) level = data.level;
+        if(typeof data.totalStars === "number" && data.totalStars >= 0) totalStars = data.totalStars;
+      }
+    }catch(e){ console.warn("No se pudo cargar el progreso guardado.", e); }
+  }
+
+  function updateStarsDisplay(){
+    starsTotalEl.textContent = "⭐ " + totalStars;
+    saveProgress();
+  }
+
+  // Si el jugador tiene suficientes estrellas, se cobran al instante.
+  // Si no, se ofrece gratis viendo un anuncio recompensado (simulado).
+  let hintSkipBusy = false;
+  function spendOrWatchAd(cost, label, onGrant){
+    if(hintSkipBusy) return; // evita disparar varias veces seguidas (doble clic, anuncio en curso, etc.)
+    hintSkipBusy = true;
+    const btnHintEl = document.getElementById("btn-hint");
+    const btnSkipEl = document.getElementById("btn-skip");
+    btnHintEl.disabled = true; btnSkipEl.disabled = true;
+    const release = () => {
+      hintSkipBusy = false;
+      btnHintEl.disabled = false; btnSkipEl.disabled = false;
+    };
+    if(totalStars >= cost){
+      totalStars -= cost;
+      updateStarsDisplay();
+      onGrant();
+      release();
+    } else {
+      showRewardedAdStub(label, onGrant, release);
+    }
+  }
+
+  function showHint(){
+    // 1) Prioridad: piezas que ni siquiera se han colocado.
+    let p = packages.find(pp => !pp.placed && pp.solX != null);
+    let targetIsGridPiece = false;
+    if(!p){
+      // 2) Si TODO está "colocado" pero alguna quedó en un lugar
+      // distinto al de la solución (el bug que reportaste: antes aquí
+      // se daba por hecho que "colocada" = "correcta" y la pista dejaba
+      // de servir), se sugiere esa.
+      p = packages.find(pp => pp.placed && pp.solX != null &&
+        (pp.x !== pp.solX || pp.y !== pp.solY || pp.width !== pp.solW || pp.height !== pp.solH));
+      targetIsGridPiece = true;
+    }
+    if(!p){ showMessage("¡Todo parece estar en el lugar correcto!", true); return; }
+    const rowFromTop = gridRows - p.solY - p.solH;
+    const hintEl = document.createElement("div");
+    hintEl.className = "hint-preview";
+    hintEl.style.gridColumn = `${p.solX+1} / span ${p.solW}`;
+    hintEl.style.gridRow = `${rowFromTop+1} / span ${p.solH}`;
+    gridEl.appendChild(hintEl);
+    // La pieza a resaltar puede estar en el almacén (aún sin colocar) o
+    // ya puesta en el camión pero en el lugar equivocado — se busca en
+    // el lugar correcto según el caso.
+    const pulseTile = targetIsGridPiece
+      ? gridEl.querySelector(`[data-pkg-id="${p.id}"]`)
+      : invEl.querySelector(`[data-inv-id="${p.id}"]`);
+    if(pulseTile) pulseTile.classList.add("hint-pulse");
+    setTimeout(() => {
+      hintEl.classList.add("leaving");
+      setTimeout(() => { hintEl.remove(); if(pulseTile) pulseTile.classList.remove("hint-pulse"); }, 350);
+    }, 5200);
+  }
+
+  function goToNextLevel(){
+    level += 1;
+    generateLevel(level);
+    hideResult();
+    truckScene.classList.remove("drive-away");
+    truckWheels.classList.remove("drive-away");
+    render();
+    saveProgress();
+    levelBadge.classList.remove("pulse"); void levelBadge.offsetWidth; levelBadge.classList.add("pulse");
+    truckWrap.classList.remove("grid-enter"); void truckWrap.offsetWidth; truckWrap.classList.add("grid-enter");
+    truckScene.classList.remove("drive-in"); void truckScene.offsetWidth; truckScene.classList.add("drive-in");
+    truckWheels.classList.remove("drive-in"); void truckWheels.offsetWidth; truckWheels.classList.add("drive-in");
+    if(level % 3 === 0) showInterstitialStub();
+  }
+
+  document.getElementById("btn-hint").onclick = () => spendOrWatchAd(HINT_COST, "pista", showHint);
+  document.getElementById("btn-skip").onclick = () => spendOrWatchAd(SKIP_COST, "saltar nivel", goToNextLevel);
+  function sfxRotate(){ beep(500, 0.06, "triangle", 700); }
+
+  document.getElementById("sound-toggle").onclick = (e) => {
+    soundOn = !soundOn;
+    e.target.textContent = soundOn ? "🔊" : "🔇";
+    if(soundOn) ensureAudio();
+  };
+
+  // ---------- MODALES (Ranking / Ayuda / Tutorial) ---------
+  const modalBackdrop = document.getElementById("modal-backdrop");
+  const TUTORIAL_KEY = "wobblyCargoTutorialSeen";
+  function openModal(id, autoCloseMs){
+    document.getElementById(id).classList.add("open");
+    modalBackdrop.classList.add("open");
+    if(autoCloseMs){
+      // Respaldo: si por alguna razón nada más lo cierra (X, clic
+      // afuera, botón), se cierra solo — así ningún popup puede quedar
+      // bloqueando el juego indefinidamente en ningún dispositivo.
+      setTimeout(() => {
+        if(document.getElementById(id).classList.contains("open")) closeAllModals();
+      }, autoCloseMs);
+    }
+  }
+  function closeAllModals(){
+    const tutorialWasOpen = document.getElementById("modal-tutorial").classList.contains("open");
+    document.querySelectorAll(".modal-panel.open").forEach(m => m.classList.remove("open"));
+    modalBackdrop.classList.remove("open");
+    if(tutorialWasOpen){
+      try{ localStorage.setItem(TUTORIAL_KEY, "1"); }catch(e){}
+    }
+  }
+  function maybeShowTutorial(){
+    let seen = false;
+    try{ seen = !!localStorage.getItem(TUTORIAL_KEY); }catch(e){}
+    if(!seen) openModal("modal-tutorial", 12000);
+  }
+  document.getElementById("btn-rank-toggle").onclick = () => openModal("modal-rank", 20000);
+  document.getElementById("btn-help-toggle").onclick = () => openModal("modal-help", 20000);
+  document.getElementById("btn-tutorial-close").onclick = closeAllModals;
+  document.getElementById("btn-tutorial-next").onclick = () => {
+    document.getElementById("tut-slide-1").style.display = "none";
+    document.getElementById("tut-slide-2").style.display = "block";
+    document.getElementById("btn-tutorial-next").style.display = "none";
+    document.getElementById("btn-tutorial-close").style.display = "block";
+    document.getElementById("tut-dot-1").classList.remove("active");
+    document.getElementById("tut-dot-2").classList.add("active");
+  };
+  modalBackdrop.onclick = closeAllModals;
+  document.querySelectorAll(".modal-close").forEach(btn => {
+    btn.onclick = () => closeAllModals();
+  });
+
+  // ---------- CONFETI ----------
+  function spawnConfetti(){
+    for(let i=0; i<24; i++){
+      const c = document.createElement("div");
+      c.className = "confetti";
+      c.style.background = pick(PALETTE);
+      c.style.left = (10 + Math.random()*80) + "%";
+      c.style.animationDelay = (Math.random()*150) + "ms";
+      c.style.animationDuration = (700 + Math.random()*400) + "ms";
+      truckWrap.appendChild(c);
+      setTimeout(() => c.remove(), 1300);
+    }
+  }
+
+  // ---------- RENDER ----------
+  const gridEl = document.getElementById("truck-grid");
+  const invEl = document.getElementById("inventory");
+  const msgEl = document.getElementById("message");
+  const starsEl = document.getElementById("stars");
+  const levelBadge = document.getElementById("level-badge");
+  const weightValue = document.getElementById("weight-value");
+  const weightFill = document.getElementById("weight-bar-fill");
+  const weightBox = document.getElementById("weight-box");
+  const pkgCountValue = document.getElementById("pkg-count-value");
+  const truckWrap = document.getElementById("truck-wrap");
+  const truckScene = document.getElementById("truck-scene");
+  const truckWheels = document.getElementById("truck-wheels");
+  const balanceNeedle = document.getElementById("balance-needle");
+  const dragGhost = document.getElementById("drag-ghost");
+  const dropPreview = document.getElementById("drop-preview");
+  const starsTotalEl = document.getElementById("stars-total");
+  const leaderboardEl = document.getElementById("leaderboard");
+
+  const FAKE_NAMES = ["Ana92","ElCargador","TruckMaster","Pao_G","RollinRicky","MaxCarga","Sofi.exe","DonBalance"];
+  let fakePlayers = [];
+  function initFakePlayers(){
+    fakePlayers = FAKE_NAMES.slice(0,5).map(name => ({ name, levelOffset: Math.floor(rnd(-2,4)) }));
+  }
+  function renderLeaderboard(){
+    const rows = fakePlayers.map(fp => ({name: fp.name, lvl: clamp(level+fp.levelOffset,1,999), you:false}));
+    rows.push({name:"Tú", lvl: level, you:true});
+    rows.sort((a,b)=> b.lvl - a.lvl);
+    leaderboardEl.innerHTML = rows.map(r =>
+      `<div class="lb-row${r.you?' you':''}"><span>${r.you?'👉 ':''}${r.name}</span><span>Nivel ${r.lvl}</span></div>`
+    ).join("");
+  }
+
+  function pkgInnerHTML(p){
+    return `<span class="icons">${p.is_fragile?"❄️":""}${p.heavy_bottom_only?"⬇️":""}</span>${p.id}<small>${p.weight}kg</small>`
+      + (p.is_fragile ? `<div class="fragile-shine"></div>` : "");
+  }
+
+  function sizeGridToFit(){
+    // el tamaño de celda se calcula con el espacio REAL disponible
+    // (ancho y alto), no con un número fijo — así una rejilla de 6x5
+    // en un nivel avanzado nunca se sale de la pantalla.
+    const wrapStyles = getComputedStyle(truckWrap);
+    const padX = parseFloat(wrapStyles.paddingLeft) + parseFloat(wrapStyles.paddingRight);
+    const padY = parseFloat(wrapStyles.paddingTop) + parseFloat(wrapStyles.paddingBottom);
+    const availW = truckWrap.clientWidth - padX;
+    const availH = truckWrap.clientHeight - padY;
+    const gapPx = 3;
+    const cellW = (availW - gapPx*(gridCols-1)) / gridCols;
+    const cellH = (availH - gapPx*(gridRows-1)) / gridRows;
+    let cellSize = Math.floor(Math.min(cellW, cellH));
+    cellSize = Math.max(26, Math.min(cellSize, 76));
+    gridEl.style.gridTemplateColumns = `repeat(${gridCols}, ${cellSize}px)`;
+    gridEl.style.gridTemplateRows = `repeat(${gridRows}, ${cellSize}px)`;
+  }
+
+  function render(){
+    levelBadge.textContent = "NIVEL " + level;
+
+    gridEl.style.gridTemplateColumns = `repeat(${gridCols}, 1fr)`;
+    gridEl.style.gridTemplateRows = `repeat(${gridRows}, 1fr)`;
+    gridEl.innerHTML = "";
+    gridEl.appendChild(dropPreview);
+
+    for(let row = gridRows-1; row >= 0; row--){
+      for(let col = 0; col < gridCols; col++){
+        const occ = occupantAt(col,row);
+        if(occ && occ.x === col && occ.y === row){
+          const div = document.createElement("div");
+          div.dataset.pkgId = occ.id;
+          div.className = "pkg mat-" + materialOf(occ)
+            + (occ.id === lastPlacedId ? " pop-in" : "");
+          div.style.gridColumn = `${col+1} / span ${occ.width}`;
+          div.style.gridRow = `${gridRows-row-occ.height+1} / span ${occ.height}`;
+          if(materialOf(occ) === "cardboard") div.style.background = "";
+          div.style.setProperty("--pkgcolor", occ.color);
+          if(materialOf(occ) !== "cardboard"){ /* usa textura de material */ }
+          else { div.style.background = `linear-gradient(135deg, transparent 46%, rgba(0,0,0,0.18) 47%, rgba(0,0,0,0.18) 53%, transparent 54%), linear-gradient(45deg, transparent 46%, rgba(0,0,0,0.18) 47%, rgba(0,0,0,0.18) 53%, transparent 54%), ${occ.color}`; }
+          div.innerHTML = pkgInnerHTML(occ);
+          div.addEventListener("pointerdown", (e) => startDrag(e, occ, div, true));
+          gridEl.appendChild(div);
+        } else if(!occ){
+          const div = document.createElement("div");
+          div.className = "cell";
+          gridEl.appendChild(div);
+        }
+      }
+    }
+
+    invEl.innerHTML = "";
+    const pending = packages.filter(p => !p.placed);
+    if(pending.length === 0){
+      invEl.innerHTML = `<div class="inv-empty">Almacén vacío — ¡todo cargado!</div>`;
+    }
+    pending.forEach(p => {
+      const div = document.createElement("div");
+      div.dataset.invId = p.id;
+      div.className = "inv-item mat-" + materialOf(p) + (p.id === lastReturnedId ? " pop-in" : "");
+      if(materialOf(p) === "cardboard"){
+        div.style.background = `linear-gradient(135deg, transparent 46%, rgba(0,0,0,0.18) 47%, rgba(0,0,0,0.18) 53%, transparent 54%), linear-gradient(45deg, transparent 46%, rgba(0,0,0,0.18) 47%, rgba(0,0,0,0.18) 53%, transparent 54%), ${p.color}`;
+      }
+      div.innerHTML = `<span>${p.is_fragile?"❄️":""}${p.heavy_bottom_only?"⬇️":""}</span><span class="dims">${p.width}×${p.height}</span><span class="dims">${p.weight}kg</span>`;
+      if(p.width !== p.height){
+        const rot = document.createElement("div");
+        rot.className = "rotate-btn";
+        rot.textContent = "↻";
+        rot.onclick = (e) => { e.stopPropagation(); const t=p.width; p.width=p.height; p.height=t; sfxRotate(); render(); };
+        rot.addEventListener("pointerdown", (e) => e.stopPropagation());
+        div.appendChild(rot);
+      }
+      div.addEventListener("pointerdown", (e) => startDrag(e, p, div, false));
+      invEl.appendChild(div);
+    });
+
+    const placed = packages.filter(p => p.placed);
+    const totalWeight = +placed.reduce((s,p)=>s+p.weight,0).toFixed(1);
+    weightValue.textContent = `${totalWeight} / ${maxWeight} kg`;
+    const pct = clamp((totalWeight/maxWeight)*100, 0, 100);
+    weightFill.style.width = pct + "%";
+    weightFill.style.background = totalWeight > maxWeight ? "var(--danger)" : "var(--ok)";
+    weightBox.classList.toggle("warn", totalWeight > maxWeight);
+    pkgCountValue.textContent = `${placed.length} / ${packages.length}`;
+
+    const bal = computeBalance();
+    const pctOffset = clamp(bal.sign * 340, -43, 43); // % desplazamiento visual (más sensible que antes)
+    balanceNeedle.style.left = (50 + pctOffset) + "%";
+    balanceNeedle.classList.toggle("off", bal.hasCargo && bal.dev > balanceTolerance);
+
+    renderLeaderboard();
+    btnStart.disabled = solved;
+    sizeGridToFit();
+  }
+
+  let toastTimer = null;
+  function showMessage(text, ok){
+    msgEl.textContent = text;
+    msgEl.className = (ok ? "ok" : "bad") + " show";
+    clearTimeout(toastTimer);
+    // Se cierra solo a los 3.5s pase lo que pase — antes solo se
+    // ocultaba si el jugador tocaba una pieza o "Reiniciar", así que si
+    // no hacía nada más se quedaba tapando los botones para siempre.
+    toastTimer = setTimeout(() => { msgEl.classList.remove("show"); }, 3500);
+  }
+  function hideResult(){
+    clearTimeout(toastTimer);
+    starsEl.style.display = "none"; msgEl.textContent = ""; msgEl.className = "";
+  }
+
+  // ---------- ARRASTRAR Y SOLTAR ----------
+  let drag = null; // {pkg, fromGrid, origX, origY, w, h}
+
+  function startDrag(e, pkg, sourceEl, fromGrid){
+    if(pkg.placed !== fromGrid && fromGrid) return;
+    e.preventDefault();
+    hideResult();
+    const gridRect = gridEl.getBoundingClientRect();
+    const cellW = gridRect.width / gridCols;
+    const cellH = gridRect.height / gridRows;
+    drag = {
+      pkg, fromGrid,
+      origX: pkg.x, origY: pkg.y,
+      pxW: pkg.width * cellW, pxH: pkg.height * cellH,
+      cellW, cellH, gridRect
+    };
+    if(fromGrid){ pkg.placed = false; render(); }
+
+    dragGhost.className = "mat-" + materialOf(pkg);
+    if(materialOf(pkg) === "cardboard"){
+      dragGhost.style.background = `linear-gradient(135deg, transparent 46%, rgba(0,0,0,0.18) 47%, rgba(0,0,0,0.18) 53%, transparent 54%), linear-gradient(45deg, transparent 46%, rgba(0,0,0,0.18) 47%, rgba(0,0,0,0.18) 53%, transparent 54%), ${pkg.color}`;
+    } else {
+      dragGhost.style.background = "";
+    }
+    dragGhost.style.width = drag.pxW + "px";
+    dragGhost.style.height = drag.pxH + "px";
+    dragGhost.innerHTML = pkgInnerHTML(pkg);
+    dragGhost.style.display = "flex";
+    dropPreview.style.display = "block";
+    moveDrag(e);
+
+    window.addEventListener("pointermove", moveDrag);
+    window.addEventListener("pointerup", endDrag);
+  }
+
+  function computeTargetCell(clientX, clientY){
+    const anchorX = clientX - drag.pxW/2 - drag.gridRect.left;
+    const anchorY = clientY - drag.pxH/2 - drag.gridRect.top;
+    let col = Math.round(anchorX / drag.cellW);
+    let rowFromTop = Math.round(anchorY / drag.cellH);
+    col = clamp(col, 0, gridCols - drag.pkg.width);
+    rowFromTop = clamp(rowFromTop, 0, gridRows - drag.pkg.height);
+    const y = gridRows - drag.pkg.height - rowFromTop;
+    return {x: col, y, rowFromTop};
+  }
+
+  function moveDrag(e){
+    if(!drag) return;
+    dragGhost.style.left = (e.clientX - drag.pxW/2) + "px";
+    dragGhost.style.top = (e.clientY - drag.pxH/2) + "px";
+
+    const overGrid = e.clientX >= drag.gridRect.left && e.clientX <= drag.gridRect.right &&
+                      e.clientY >= drag.gridRect.top && e.clientY <= drag.gridRect.bottom;
+
+    if(overGrid){
+      const {x, y, rowFromTop} = computeTargetCell(e.clientX, e.clientY);
+      const valid = canPlace(drag.pkg, x, y, drag.pkg.id);
+      dropPreview.style.display = "block";
+      dropPreview.style.gridColumn = `${x+1} / span ${drag.pkg.width}`;
+      dropPreview.style.gridRow = `${rowFromTop+1} / span ${drag.pkg.height}`;
+      dropPreview.classList.toggle("invalid", !valid);
+      dragGhost.classList.toggle("invalid", !valid);
+      drag.candidate = valid ? {x,y} : null;
+    } else {
+      dropPreview.style.display = "none";
+      dragGhost.classList.remove("invalid");
+      drag.candidate = null;
+    }
+  }
+
+  function endDrag(e){
+    if(!drag) return;
+    window.removeEventListener("pointermove", moveDrag);
+    window.removeEventListener("pointerup", endDrag);
+    dragGhost.style.display = "none";
+    dropPreview.style.display = "none";
+
+    const invRect = invEl.getBoundingClientRect();
+    const overInventory = e.clientX >= invRect.left && e.clientX <= invRect.right &&
+                           e.clientY >= invRect.top && e.clientY <= invRect.bottom;
+
+    if(drag.candidate){
+      drag.pkg.placed = true; drag.pkg.x = drag.candidate.x; drag.pkg.y = drag.candidate.y;
+      lastPlacedId = drag.pkg.id;
+      history.push(drag.fromGrid
+        ? {type:"move", id:drag.pkg.id, prevX:drag.origX, prevY:drag.origY}
+        : {type:"place", id:drag.pkg.id});
+      sfxPlace(drag.pkg);
+      setTimeout(() => { lastPlacedId = null; }, 300);
+    } else if(overInventory || !drag.fromGrid){
+      drag.pkg.placed = false; drag.pkg.x = null; drag.pkg.y = null;
+      if(drag.fromGrid){
+        lastReturnedId = drag.pkg.id;
+        history.push({type:"pickup", id:drag.pkg.id, prevX:drag.origX, prevY:drag.origY});
+        setTimeout(() => { lastReturnedId = null; }, 300);
+      }
+    } else {
+      // suelta inválida en el aire: vuelve a su lugar de origen si venía del camión
+      if(drag.fromGrid){ drag.pkg.placed = true; drag.pkg.x = drag.origX; drag.pkg.y = drag.origY; }
+    }
+
+    drag = null;
+    render();
+  }
+
+  // ---------- CONTROLES ----------
+  const btnStart = document.getElementById("btn-start");
+  btnStart.onclick = () => {
+    if(solved) return; // ya se otorgaron las estrellas de este nivel — evita farmear con doble clic
+    const result = validateTruckLoading();
+    if(result.success){
+      solved = true;
+      if(!starsAwardedThisLevel){
+        totalStars += 1; // moneda fija por nivel — la calificación ★★★ de abajo es solo desempeño, no cambia la ganancia
+        starsAwardedThisLevel = true;
+        updateStarsDisplay();
+      }
+      starsEl.textContent = "★".repeat(result.stars) + "☆".repeat(3-result.stars);
+      starsEl.style.display = "block";
+      starsEl.classList.remove("pop"); void starsEl.offsetWidth; starsEl.classList.add("pop");
+      showMessage(result.msg, true);
+      sfxWin();
+      spawnConfetti();
+      setTimeout(() => {
+        truckScene.classList.add("drive-away");
+        truckWheels.classList.add("drive-away");
+        beep(340, 0.5, "sawtooth", 180); // un "vrrrum" grave al arrancar
+      }, 750);
+      setTimeout(() => { goToNextLevel(); }, 1950); // deja ver el confeti, las estrellas, y que el camión se vaya
+    } else {
+      showMessage(result.msg, false);
+      starsEl.style.display = "none";
+      truckWrap.classList.remove("shake"); void truckWrap.offsetWidth; truckWrap.classList.add("shake");
+      sfxError();
+      (result.offenders || []).forEach(id => {
+        const el = gridEl.querySelector(`[data-pkg-id="${id}"]`);
+        if(el) el.classList.add("error-flash");
+      });
+      if(result.code === "ERR_OVERWEIGHT"){
+        weightBox.classList.add("warn");
+        setTimeout(() => weightBox.classList.remove("warn"), 450);
+      }
+    }
+  };
+
+  document.getElementById("btn-reset").onclick = () => { resetPlacement(); hideResult(); render(); };
+
+  // ---------- INICIO ----------
+  initFakePlayers();
+  loadProgress();
+  generateLevel(level);
+  updateStarsDisplay();
+  render();
+  initAds();
+  maybeShowTutorial();
+  window.addEventListener("resize", sizeGridToFit);
+
+})();
+</script>
+</body>
+</html>
